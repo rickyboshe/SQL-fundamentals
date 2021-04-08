@@ -1,0 +1,90 @@
+---
+title: "Analyzing CIA Factbook"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Load Packages and establish DB connection
+```{r packages, include = TRUE, Message=FALSE, warning=FALSE, Echo=FALSE}
+
+library(RSQLite)
+con<-dbConnect(SQLite(), "./factbook.db")
+
+```
+
+
+```{sql, connection=con, results="hide"}
+--Preview the tables available
+SELECT *
+FROM sqlite_master
+WHERE type='table';
+```
+
+```{sql, connection=con, max.print=5}
+--First 5 rows from facts table
+SELECT *
+FROM facts
+LIMIT 5;
+```
+
+###  **Min and Max populations states**
+```{sql, connection=con, max.print=5}
+SELECT MIN(population) as min_pop, MAX(population) as max_pop,
+MIN(population_growth) as min_pop_g, MAX(population_growth) as max_pop_g
+FROM facts;
+```
+
+###  **Country with the minimum population**
+```{sql, connection=con, max.print=5}
+SELECT *
+FROM facts
+WHERE population ==(SELECT MIN(population)
+                    FROM facts);
+```
+
+###  **Country with the maximum population**
+```{sql, connection=con, max.print=5}
+SELECT *
+FROM facts
+WHERE population ==(SELECT MAX(population)
+                    FROM facts);
+```
+
+###  **Min and Max populations states (excluding 'World')**
+```{sql, connection=con, max.print=5}
+SELECT MIN(population) as min_pop, MAX(population) as max_pop,
+MIN(population_growth) as min_pop_g, MAX(population_growth) as max_pop_g
+FROM facts
+WHERE name != "World";
+```
+
+### **Average value of Population and Area (excluding 'World')**
+```{sql, connection=con, max.print=5}
+SELECT AVG(population), AVG(area)
+FROM facts
+WHERE name != "World";
+```
+
+###  **Countries with an above average population and below average area**
+```{sql, connection=con, max.print=5}
+SELECT*
+FROM facts
+WHERE population > (SELECT AVG(population)
+                    FROM facts
+                    WHERE name != "World")
+AND area < (SELECT AVG(area)
+            FROM facts
+            WHERE name != "World");
+```
+
+###  **Countries with the most people**
+```{sql, connection=con, max.print=5}
+SELECT*, MAX(population)
+FROM facts
+WHERE name != "World";
+```
+
+
+
