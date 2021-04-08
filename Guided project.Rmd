@@ -1,9 +1,10 @@
 ---
 title: "Analyzing CIA Factbook"
+author: "Fredrick Boshe"
+date: "08/04/2021"
 output:
-  html_document:
-    df_print: paged
-  word_document: default
+  github_document: default
+  rmarkdown::github_document: default
 ---
 
 Load Packages and establish DB connection
