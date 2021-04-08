@@ -1,2 +1,2 @@
 *.sql linguist-detectable=true
-*.md linguist-language=true
+*.md linguist-detectable=true
