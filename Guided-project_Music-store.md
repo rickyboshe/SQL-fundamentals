@@ -1,30 +1,19 @@
----
-title: 'Guided project: Music SQLite'
-author: "Fredrick Boshe"
-date: "19/04/2021"
-output: 
-  github_document: default
-  rmarkdown::github_document: default
----
+Guided project: Music SQLite
+================
+Fredrick Boshe
+19/04/2021
 
-```{r packages, include=FALSE}
-library(tidyverse)
-library(DBI)
-library(RSQLite)
-library(ggplot2)
-library(plotly)
-library(lubridate)
-library(ggcorrplot)
-getwd()
-```
-
-```{r database, include=TRUE}
+``` r
 conn<-dbConnect(SQLite(), "chinook.db")
 tables <- dbListTables(conn)
 tables
 ```
 
-```{sql, connection=conn, include=TRUE}
+    ##  [1] "album"          "artist"         "customer"       "employee"      
+    ##  [5] "genre"          "invoice"        "invoice_line"   "media_type"    
+    ##  [9] "playlist"       "playlist_track" "track"
+
+``` sql
 --Preview the tables in the database
 SELECT
     name,
@@ -37,12 +26,28 @@ SELECT g.name as genre_name, il.quantity as quantity_sold
 FROM genre as g
 LEFT JOIN track as t ON t.genre_id=g.genre_id
 LEFT JOIN invoice_line as il ON il.track_id=t.track_id;
-
-
 ```
 
+<div class="knitsql-table">
 
-```{sql, connection=conn, include=TRUE, output.var="genres"}
+| name            | type  |
+| :-------------- | :---- |
+| album           | table |
+| artist          | table |
+| customer        | table |
+| employee        | table |
+| genre           | table |
+| invoice         | table |
+| invoice\_line   | table |
+| media\_type     | table |
+| playlist        | table |
+| playlist\_track | table |
+
+Displaying records 1 - 10
+
+</div>
+
+``` sql
 ---Most sold genres in the USA
 
 WITH USA_tracks AS 
@@ -58,10 +63,9 @@ INNER JOIN genre as g ON g.genre_id=t.genre_id
 GROUP BY 1
 ORDER BY 2 DESC
 LIMIT 10;
-
 ```
 
-```{r plot1, include=TRUE, out.height='100%', out.width='100%'}
+``` r
 genres_prop<-genres%>%
   drop_na(quantity_sold)%>%
   mutate(prop_quantity=quantity_sold/sum(quantity_sold))
@@ -79,12 +83,14 @@ plot1<-genres_prop%>%
         axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0)),
         legend.position="none")
 plot1
-
 ```
-Out of the four artists, it would be wise to select the artists producing **punk**, **blues** and **Pop** as they are the three best performing genres out of the four artists, in the USA.
 
+<img src="Guided-project_Music-store_files/figure-gfm/plot1-1.png" width="100%" height="100%" />
+Out of the four artists, it would be wise to select the artists
+producing **punk**, **blues** and **Pop** as they are the three best
+performing genres out of the four artists, in the USA.
 
-```{sql, connection=conn, include=TRUE, output.var="sales"}
+``` sql
 --Best performing sales rep/customer support
 WITH sales_cus AS (
 SELECT e.first_name||" "||e.last_name as sales_rep, e.hire_date, e.birthdate, e.title, c.customer_id
@@ -97,11 +103,9 @@ FROM invoice as i
 INNER JOIN sales_cus as sc ON sc.customer_id=i.customer_id
 GROUP BY 1
 ORDER BY 5 DESC;
-
 ```
 
-
-```{r sales, include=TRUE, out.height='100%', out.width='100%'}
+``` r
 #format dates
 
 sales$hire_date<-as.numeric(ymd_hms(sales$hire_date, tz="Europe/Berlin"))
@@ -123,7 +127,11 @@ plot2<-sales%>%
         axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0)),
         legend.position="none")
 plot2
+```
 
+<img src="Guided-project_Music-store_files/figure-gfm/sales-1.png" width="100%" height="100%" />
+
+``` r
 #check correlation between factors
 corr <- sales%>%
   select(-1,-4)%>%
@@ -135,15 +143,21 @@ plot3 <- ggcorrplot(
   theme(plot.title = element_text(color="black", size=12, face="bold", hjust = 0.5,
                                   margin = margin(t = 0, r = 0, b = 15, l = 0)))
 plot3
-
 ```
 
+<img src="Guided-project_Music-store_files/figure-gfm/sales-2.png" width="100%" height="100%" />
 
-Jane peacock was the best performing sales support with close to 1750 sold. It would seem that hiring date has a strong negative correlation (r=-0.95) with total sales. Being hired earlier has a sales support rep at an advantage over someone that was hired later.
+Jane peacock was the best performing sales support with close to 1750
+sold. It would seem that hiring date has a strong negative correlation
+(r=-0.95) with total sales. Being hired earlier has a sales support rep
+at an advantage over someone that was hired later.
 
-There is also a slight positive correlation (r=0.25) between birth date and performance. Younger sales support seem to have a slight advantage over older sales reps. Although this observation is not statistically significance.
+There is also a slight positive correlation (r=0.25) between birth date
+and performance. Younger sales support seem to have a slight advantage
+over older sales reps. Although this observation is not statistically
+significance.
 
-```{sql, connection=conn, include=TRUE, output.var="country"}
+``` sql
 --Countries with the best customer value
 SELECT c.country, COUNT(DISTINCT c.customer_id) as no_customers, i.invoice_id, SUM(il.unit_price) as total_value, 
        SUM(il.unit_price) / count(distinct c.customer_id) customer_lifetime_value,
@@ -153,11 +167,9 @@ INNER JOIN invoice as i ON i.customer_id=c.customer_id
 INNER JOIN invoice_line as il ON il.invoice_id=i.invoice_id
 GROUP BY 1
 ORDER BY 2 DESC;
-
 ```
 
-
-```{r plot4, include=TRUE, out.height='100%', out.width='100%'}
+``` r
 #Recode countries with less than 2 customers 
 country<-country%>%
   select(-invoice_id)%>%
@@ -189,13 +201,11 @@ plot4<-country_longer%>%
         axis.ticks = element_blank(),
         legend.position="none")
 plot4
-
-
 ```
 
-The USA has the most number of customers as well as the highest total value of orders. However, the Czech Republic has the highest customer lifetime value, meaning it is a market that one should invest more in acquiring customers.
+<img src="Guided-project_Music-store_files/figure-gfm/plot4-1.png" width="100%" height="100%" />
 
-```{r disc, include=FALSE}
-dbDisconnect(conn)
-
-```
+The USA has the most number of customers as well as the highest total
+value of orders. However, the Czech Republic has the highest customer
+lifetime value, meaning it is a market that one should invest more in
+acquiring customers.
