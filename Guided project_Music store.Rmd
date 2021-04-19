@@ -99,7 +99,7 @@ ORDER BY 5 DESC;
 ```
 
 
-```{r sales, include=TRUE}
+```{r sales, include=TRUE, out.height='100%', out.width='100%'}
 #format dates
 
 sales$hire_date<-as.numeric(ymd_hms(sales$hire_date, tz="Europe/Berlin"))
@@ -135,6 +135,8 @@ plot3 <- ggcorrplot(
 plot3
 
 ```
+
+
 Jane peacock was the best performing sales support with close to 1750 sold. It would seem that hiring date has a strong negative correlation (r=-0.95) with total sales. Being hired earlier has a sales support rep at an advantage over someone that was hired later.
 
 There is also a slight positive correlation (r=0.25) between birth date and performance. Younger sales support seem to have a slight advantage over older sales reps. Although this observation is not statistically significance.
