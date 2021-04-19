@@ -60,3 +60,93 @@ FROM facts;
 </div>
 
 **Full solution workbook can be viewed [here](https://github.com/rickyboshe/SQL-fundamentals/blob/main/Guided-project.md)**
+<br></br>
+##  Project Two: Chinook Music store
+``` r
+conn<-dbConnect(SQLite(), "chinook.db")
+tables <- dbListTables(conn)
+tables
+```
+
+    ##  [1] "album"          "artist"         "customer"       "employee"      
+    ##  [5] "genre"          "invoice"        "invoice_line"   "media_type"    
+    ##  [9] "playlist"       "playlist_track" "track"
+
+``` sql
+--Preview the tables in the database
+SELECT
+    name,
+    type
+FROM sqlite_master
+WHERE type IN ("table","view");
+
+--Most sold genres
+SELECT g.name as genre_name, il.quantity as quantity_sold
+FROM genre as g
+LEFT JOIN track as t ON t.genre_id=g.genre_id
+LEFT JOIN invoice_line as il ON il.track_id=t.track_id;
+```
+
+<div class="knitsql-table">
+
+| name            | type  |
+| :-------------- | :---- |
+| album           | table |
+| artist          | table |
+| customer        | table |
+| employee        | table |
+| genre           | table |
+| invoice         | table |
+| invoice\_line   | table |
+| media\_type     | table |
+| playlist        | table |
+| playlist\_track | table |
+
+Displaying records 1 - 10
+
+</div>
+
+``` sql
+---Most sold genres in the USA
+
+WITH USA_tracks AS 
+(SELECT il.quantity, il.track_id
+FROM invoice_line as il
+INNER JOIN invoice as i ON i.invoice_id=il.invoice_id
+WHERE i.billing_country="USA")
+
+SELECT g.name as genre_name, SUM(ut.quantity) as quantity_sold
+FROM track as t
+INNER JOIN USA_tracks as ut ON ut.track_id=t.track_id
+INNER JOIN genre as g ON g.genre_id=t.genre_id
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 10;
+```
+
+``` r
+genres_prop<-genres%>%
+  drop_na(quantity_sold)%>%
+  mutate(prop_quantity=quantity_sold/sum(quantity_sold))
+
+plot1<-genres_prop%>%
+  ggplot(aes(x=reorder(factor(genre_name), -quantity_sold), y=quantity_sold, fill=genre_name))+
+  geom_col()+
+  theme_minimal()+
+  labs(title = "Most selling genres in the USA",
+       y="No. Tracks Sold",
+       x="Genre")+
+  theme(plot.title = element_text(hjust = 0.5, size = 12, face="bold", 
+                                  margin = margin(t = 0, r = 0, b = 15, l = 0)),
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0)),
+        legend.position="none")
+plot1
+```
+
+<img src="Guided-project_Music-store_files/figure-gfm/plot1-1.png" width="100%" height="100%" />
+Out of the four artists, it would be wise to select the artists
+producing **punk**, **blues** and **Pop** as they are the three best
+performing genres out of the four artists, in the USA.
+
+**Full solution workbook can be viewed [here](https://github.com/rickyboshe/SQL-fundamentals/blob/main/Guided-project_Music-store.md)**
