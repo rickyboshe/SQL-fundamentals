@@ -26,7 +26,7 @@ library(jsonlite)
 library(emo)
 library(zoo)
 
-
+getwd()
 ```
 It looks like the game log has a record of over 170,000 games. It looks like these games are chronologically ordered and occur between 1871 and 2016.
 
@@ -43,13 +43,13 @@ We have a game_log_fields.txt file that tell us that the player number correspon
 It's worth noting that there is no natural primary key column for this table.
 
 ```{r data, include=TRUE, message=FALSE, warning=FALSE}
-game<-read_csv("C:/Users/ricky/OneDrive/Desktop/School/R/DataQuest/SQL/Guided project/game_log.csv")
+game<-read_csv("C:/Users/ricky/Documents/GitHub/SQL-fundamentals/Baseball/game_log.csv")
 
-park<-read_csv("C:/Users/ricky/OneDrive/Desktop/School/R/DataQuest/SQL/Guided project/park_codes.csv")
+park<-read_csv("C:/Users/ricky/Documents/GitHub/SQL-fundamentals/Baseball/park_codes.csv")
 
-people<-read_csv("C:/Users/ricky/OneDrive/Desktop/School/R/DataQuest/SQL/Guided project/person_codes.csv")
+people<-read_csv("C:/Users/ricky/Documents/GitHub/SQL-fundamentals/Baseball/person_codes.csv")
 
-team<-read_csv("C:/Users/ricky/OneDrive/Desktop/School/R/DataQuest/SQL/Guided project/team_codes.csv")
+team<-read_csv("C:/Users/ricky/Documents/GitHub/SQL-fundamentals/Baseball/team_codes.csv")
 
 ##Load the tables into a database
 conn <- dbConnect(SQLite(), "mlb.db") #initialize a new database
@@ -146,10 +146,10 @@ The following are opportunities for normalization of our data:
 * We have several awards in game_log like winning pitcher and losing pitcher. We can either break these out into their own table, have a table for awards, or combine the awards in with general appearances like the players and umpires.
 
 
-##Database Schema
+## Database Schema
 
 
-
+![](Baseball/Schema.png )
 
 ```{sql, connection=conn}
 --Create Person table
