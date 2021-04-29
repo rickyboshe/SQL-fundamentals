@@ -184,17 +184,5 @@ ended in 1915.
 -   UA: [Union
     Association](https://en.wikipedia.org/wiki/Union_Association)
 
-<div class="knitsql-table">
 
-| name   | type  |
-|:-------|:------|
-| game   | table |
-| park   | table |
-| people | table |
-| team   | table |
-
-4 records
-
-</div>
-
-For a **full solution (with code)** you can view it [here](https://github.com/rickyboshe/SQL-fundamentals/blob/main/Baseball.md)**
+For a **full solution (with code)** you can view it [here](https://github.com/rickyboshe/SQL-fundamentals/blob/main/Baseball.md)
