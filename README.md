@@ -61,7 +61,7 @@ FROM facts;
 
 **Full solution workbook can be viewed [here](https://github.com/rickyboshe/SQL-fundamentals/blob/main/Guided-project.md)**
 <br></br>
-##  Project Two: Chinook Music store
+##  Project Two: Querying and Visualizing Chinook Music store
 ``` r
 conn<-dbConnect(SQLite(), "chinook.db")
 tables <- dbListTables(conn)
@@ -150,3 +150,51 @@ producing **punk**, **blues** and **Pop** as they are the three best
 performing genres out of the four artists, in the USA.
 
 **Full solution workbook can be viewed [here](https://github.com/rickyboshe/SQL-fundamentals/blob/main/Guided-project_Music-store.md)**
+
+<br></br>
+##  Project Three: Building a Baseball Database
+This project is about utilizing the power of SQL to create a database
+out of several Excel CSV files that exist individually. The goal is to
+create a database that will house the several CSV files under one roof.
+This includes creating a database Schema, linking the tables with
+*primary keys* and *foreign keys*.
+
+As usual, i shall be running my SQL queries on an R markdown book to
+allow publishing queries online. A brief introduction on using SQL in R,
+the packages and requirements can be found in another project i worked
+on [earlier](https://rickyboshe.github.io/projects/Music.html).
+
+![](Baseball/Baseball.png)
+
+## Leagues
+
+According to Wikipedia, there are two major professional baseball
+leagues, the American (AL) and National (NL). The data from retrosheets
+contains a total of 6 different leagues. The additional leagues are
+mostly defunct leagues from the old days, like the Federal league which
+ended in 1915.
+
+-   NL: [National League](https://en.wikipedia.org/wiki/National_League)
+-   AL: [American League](https://en.wikipedia.org/wiki/American_League)
+-   AA: [American
+    Association](https://en.wikipedia.org/wiki/American_Association_%2819th_century%29)
+-   FL: [Federal League](https://en.wikipedia.org/wiki/Federal_League)
+-   PL: [Players
+    League](https://en.wikipedia.org/wiki/Players%27_League)
+-   UA: [Union
+    Association](https://en.wikipedia.org/wiki/Union_Association)
+
+<div class="knitsql-table">
+
+| name   | type  |
+|:-------|:------|
+| game   | table |
+| park   | table |
+| people | table |
+| team   | table |
+
+4 records
+
+</div>
+
+For a **full solution (with code)** you can view it [here](https://github.com/rickyboshe/SQL-fundamentals/blob/main/Baseball.md)**
