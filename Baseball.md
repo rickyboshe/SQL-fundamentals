@@ -3,9 +3,24 @@ Guided project: Baseball
 Fredrick Boshe
 21/04/2021
 
-It looks like the game log has a record of over 170,000 games. It looks
-like these games are chronologically ordered and occur between 1871 and
+This project is about utilizing the power of SQL to create a database
+out of several Excel CSV files that exist individually. The goal is to
+create a database that will house the several CSV files under one roof.
+This includes creating a database Schema, linking the tables with
+*primary keys* and *foreign keys*.
+
+As usual, i shall be running my SQL queries on an R markdown book to
+allow publishing queries online. A brief introduction on using SQL in R,
+the packages and requirements can be found in another project i worked
+on [earlier](https://rickyboshe.github.io/projects/Music.html).
+
+This project will look at Baseball, America’s favorite past time. It
+looks at game information and stats from a record of over 170,000 games.
+The games are are chronologically ordered and occur between 1871 and
 2016.
+
+For those unfamiliar with Baseball, it might be useful to spend sometime
+time reading up on the key aspects of the game.
 
 For each game we have:
 
@@ -16,21 +31,17 @@ For each game we have:
 -   the umpires that officiated the game
 -   some ‘awards’, like winning and losing pitcher
 
-We have a game\_log\_fields.txt file that tell us that the player number
+A game\_log\_fields.txt file that tell us that the player number
 corresponds with the order in which they batted.
 
-It’s worth noting that there is no natural primary key column for this
-table.
+This projects analyzes data from
+[Retrosheet](https://www.retrosheet.org/#).
+
+R code can be used to import CSV files as tables into a database. We
+initialize a new/empty database first.
 
 ``` r
-game<-read_csv("C:/Users/ricky/Documents/GitHub/SQL-fundamentals/Baseball/game_log.csv")
-
-park<-read_csv("C:/Users/ricky/Documents/GitHub/SQL-fundamentals/Baseball/park_codes.csv")
-
-people<-read_csv("C:/Users/ricky/Documents/GitHub/SQL-fundamentals/Baseball/person_codes.csv")
-
-team<-read_csv("C:/Users/ricky/Documents/GitHub/SQL-fundamentals/Baseball/team_codes.csv")
-
+#'Load data from your working directory into R global environment
 ##Load the tables into a database
 conn <- dbConnect(SQLite(), "mlb.db") #initialize a new database
 
@@ -45,18 +56,13 @@ dbWriteTable(conn=conn, name = "team", value = team, row.names=FALSE,
 
 #Check if all tables have been added to the database
 tables <- dbListTables(conn)
-tables
 ```
-
-    ## [1] "game"   "park"   "people" "team"
 
 ## Defensive Positions
 
-In the game log, each player has a defensive position listed, which
-seems to be a number between 1-10. Doing some research around this, I
-found this \[article\]
-(<http://probaseballinsider.com/baseball-instruction/baseball-basics/baseball-basics-positions/>)
-which gives us a list of names for each numbered position:
+You can read up on player defensive positions \[here\]
+(<https://baseballcoachinglab.com/baseball-positions/>). The listed
+positions are:
 
 -   Pitcher
 -   Catcher
@@ -68,20 +74,22 @@ which gives us a list of names for each numbered position:
 -   Center Field
 -   Right Field
 
-The 10th position isn’t included, it may be a way of describing a
-designated hitter that does not field. I can find a retrosheet page that
-indicates that position 0 is used for this, but we don’t have any
-position 0 in our data. I have chosen to make this an ‘Unknown Position’
-so I’m not including data based on a hunch.
+![](Baseball/Baseball.png)
+
+The data uploaded has “10 positions” which might be a mistake by
+Retrosheets. They have it listed as position 0. But we do not have
+position 0 in our data. Therefore i will leave out this data.
 
 ## Leagues
 
-Wikipedia tells us there are currently two leagues - the American (AL)
-and National (NL). Upon investigation of the data, we see that there are
-actually 4 more. After some googling, we come up with:
+According to Wikipedia, there are two major professional baseball
+leagues, the American (AL) and National (NL). The data from retrosheets
+contains a total of 6 different leagues. The additional leagues are
+mostly defunct leagues from the old days, like the Federal league which
+ended in 1915.
 
--   NL: National League
--   AL: American League
+-   NL: [National League](https://en.wikipedia.org/wiki/National_League)
+-   AL: [American League](https://en.wikipedia.org/wiki/American_League)
 -   AA: [American
     Association](https://en.wikipedia.org/wiki/American_Association_%2819th_century%29)
 -   FL: [Federal League](https://en.wikipedia.org/wiki/Federal_League)
@@ -89,9 +97,6 @@ actually 4 more. After some googling, we come up with:
     League](https://en.wikipedia.org/wiki/Players%27_League)
 -   UA: [Union
     Association](https://en.wikipedia.org/wiki/Union_Association)
-
-It also looks like we have about 1000 games where the home team doesn’t
-have a value for league.
 
 ``` sql
 --Preview the tables in the database
@@ -115,11 +120,19 @@ WHERE type IN ("table","view");
 
 </div>
 
+We can manipulate the tables within the database. For the game table we
+would like to have a unique identifier column for games, “game\_id”.
+
 ``` sql
 --Create a new column in the game table
 ALTER TABLE game
 ADD COLUMN game_id TEXT;
 ```
+
+The unique identifier is a combination of the home team name, the date
+of the game played and the number of game. The number of game is
+basically if it was a single game, the second game in a double header
+etc.
 
 ``` sql
 --Create fill in rows
@@ -149,40 +162,52 @@ LIMIT 5;
 
 </div>
 
-# Looking for Normalization Opportunities
+# Normalization
 
-The following are opportunities for normalization of our data:
+Normalization is the process of restructuring the data to avoid
+duplicates, redundancy etc. This makes a database easier to work with.
+It can involve splitting of tables, removing of columns and creating new
+tables/columns.
 
--   In person\_codes, all the debut dates will be able to be reproduced
-    using game log data.
--   In team\_codes, the start, end and sequence columns will be able to
-    be reproduced using game log data.
--   In park\_codes, the start and end years will be able to be
-    reproduced using game log data. While technically the state is an
-    attribute of the city, we might not want to have a an incomplete
-    city/state table so we will leave this in.
--   There are lots of places in game log where we have a player ID
-    followed by the players name. We will be able to remove this and use
-    the name data in person\_codes
--   In game\_log, all offensive and defensive stats are repeated for the
-    home team and the visiting team. We could break these out and have a
-    table that lists each game twice, one for each team, and cut out
-    this column repetition.
--   Similarly, in game\_log, we have a listing for 9 players on each
-    team with their positions - we can remove these and have one table
+There are several opportunities to normalize our data:
+
+-   Game: Columns with player Ids and player names can also be found in
+    the *People* table. So we can remove these columns from the *Game*
+    table.
+-   Game: This table has each team’s player listings (9 players and
+    their positions). We can extract this data into a separate table
     that tracks player appearances and their positions.
--   We can do a similar thing with the umpires from game\_log, instead
-    of listing all four positions as columns, we can put the umpires
-    either in their own table or make one table for players, umpires and
-    managers.
--   We have several awards in game\_log like winning pitcher and losing
-    pitcher. We can either break these out into their own table, have a
-    table for awards, or combine the awards in with general appearances
-    like the players and umpires.
+-   Game: Umpires also exhibit the same issue as players in this table.
+    We should extract them and have them in either their own table or
+    make one table for players, umpires and managers.
+-   Game: There is a repetition for the offensive and defensive stats
+    for both home teams and the visiting teams. ideally, we would like
+    to remedy this by splitting them into a table lists each game twice,
+    one for each team. Then drop the column repetition.
+-   Park: We cn reproduce the start and end years using *Game* table. We
+    would also like to have a complete state attribute, so we leave it
+    as is (i.e. state and city).
+-   People: We can reproduce the debut dates using the *Game* table.
+-   Team: We can reproduce the start, end and sequence columns using
+    *Game* table.
+
+## Database Schema
+
+It helps to jot down a schema for the normalized database. Identify the
+primary and foreign keys and how tables relate to each other. I prefer
+using the free
+[dbdesigner](https://app.dbdesigner.net/designer/schema/guest_template)
+tool.
 
 ## Database Schema
 
 ![](Baseball/Schema.png)
+
+All the normalization opportunities identified before will be done with
+SQL query in the chunks below. Click on the “code” to see more
+information and the code.
+
+#### Create person Table
 
 ``` sql
 --Create Person table
@@ -218,6 +243,8 @@ LIMIT 5;
 5 records
 
 </div>
+
+#### Create park\_new Table
 
 ``` sql
 --Create park table
@@ -257,6 +284,8 @@ LIMIT 5;
 5 records
 
 </div>
+
+#### Create league Table
 
 ``` sql
 --Create league table
@@ -300,6 +329,8 @@ LIMIT 5;
 
 </div>
 
+#### Create appearance\_type Table
+
 The data for the table “appearance\_type” exists in a separate csv file.
 Import and load values to the table.
 
@@ -307,38 +338,6 @@ Import and load values to the table.
 --Make sure no pre-existing appearance_type table
 DROP TABLE IF EXISTS appearance_type; 
 ```
-
-``` r
-appearance_type<-read_csv("C:/Users/ricky/OneDrive/Desktop/School/R/DataQuest/SQL/Guided project/appearance_type.csv")
-```
-
-    ## Parsed with column specification:
-    ## cols(
-    ##   appearance_type_id = col_character(),
-    ##   name = col_character(),
-    ##   category = col_character()
-    ## )
-
-``` r
-##Load the table into the database
-dbWriteTable(conn=conn, name = "appearance_type", value = appearance_type, 
-             row.names=FALSE, header=TRUE)
-duplicated(team$team_id)
-```
-
-    ##   [1] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ##  [13] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ##  [25] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ##  [37] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ##  [49] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ##  [61] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ##  [73] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ##  [85] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ##  [97] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ## [109] FALSE FALSE FALSE FALSE FALSE  TRUE FALSE FALSE FALSE FALSE FALSE FALSE
-    ## [121] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ## [133] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
-    ## [145] FALSE FALSE FALSE FALSE FALSE FALSE
 
 ``` sql
 --Check if query worked
@@ -360,6 +359,8 @@ LIMIT 5;
 5 records
 
 </div>
+
+#### Create team\_new Table
 
 ``` sql
 --Create team_new table
@@ -401,6 +402,8 @@ LIMIT 5;
 
 </div>
 
+#### Create game\_new Table
+
 ``` sql
 --Create game_new table
 CREATE TABLE game_new (game_id TEXT PRIMARY KEY,
@@ -421,7 +424,7 @@ CREATE TABLE game_new (game_id TEXT PRIMARY KEY,
  
 ```
 
-sqlite does not have the “BOOLEAN” data type. We must code the columns
+SQLite does not have the “BOOLEAN” data type. We must code the columns
 to 1 or 0 before passing them to the table we are creating.
 
 ``` sql
@@ -459,6 +462,11 @@ LIMIT 5;
 5 records
 
 </div>
+
+#### Create team\_appearance Table
+
+This is our first complex query that contains several *Foreign keys* and
+a compund *Primary key*.
 
 ``` sql
 --Create team_appearance table
@@ -506,8 +514,8 @@ CREATE TABLE IF NOT EXISTS team_appearance (
  
 ```
 
-sqlite does not have the “BOOLEAN” data type. We must code the columns
-to 1 or 0 before passing them to the table we are creating.
+Populating this table also requires some complex queries, specifically
+the use of the **UNION** function.
 
 ``` sql
 --Populate team_appearance table
@@ -591,24 +599,26 @@ INSERT OR IGNORE INTO team_appearance
 
 ``` sql
 --Check if query worked
-SELECT *
+SELECT team_id
 FROM team_appearance
 LIMIT 5;
 ```
 
 <div class="knitsql-table">
 
-| team\_id | game\_id         | home | league\_id | score | line\_score | at\_bats | hits | doubles | triples | homeruns | rbi | sacrifice\_hits | sacrifice\_flies | hit\_by\_pitch | walks | intentional\_walks | strikeouts | stolen\_bases | caught\_stealing | grounded\_into\_double | first\_catcher\_interference | left\_on\_base | pitchers\_used | individual\_earned\_runs | team\_earned\_runs | wild\_pitches | balks | putouts | assists | errors | passed\_balls | double\_plays | triple\_plays |
-|:---------|:-----------------|-----:|:-----------|------:|:------------|---------:|-----:|--------:|--------:|---------:|----:|----------------:|-----------------:|---------------:|------:|-------------------:|-----------:|--------------:|-----------------:|-----------------------:|-----------------------------:|---------------:|---------------:|-------------------------:|-------------------:|--------------:|------:|--------:|--------:|-------:|--------------:|--------------:|--------------:|
-| ALT      | ALT18840430.00.0 |    1 | NA         |     2 | NA          |       NA |   NA |      NA |      NA |       NA |  NA |              NA |               NA |             NA |    NA |                 NA |         NA |            NA |               NA |                     NA |                           NA |             NA |             NA |                       NA |                 NA |            NA |    NA |      NA |      NA |     NA |            NA |            NA |            NA |
-| ALT      | ALT18840502.00.0 |    1 | NA         |     3 | NA          |       NA |   NA |      NA |      NA |       NA |  NA |              NA |               NA |             NA |    NA |                 NA |         NA |            NA |               NA |                     NA |                           NA |             NA |             NA |                       NA |                 NA |            NA |    NA |      NA |      NA |     NA |            NA |            NA |            NA |
-| ALT      | ALT18840503.00.0 |    1 | NA         |     5 | NA          |       NA |   NA |      NA |      NA |       NA |  NA |              NA |               NA |             NA |    NA |                 NA |         NA |            NA |               NA |                     NA |                           NA |             NA |             NA |                       NA |                 NA |            NA |    NA |      NA |      NA |     NA |            NA |            NA |            NA |
-| ALT      | ALT18840505.00.0 |    1 | NA         |     2 | NA          |       NA |   NA |      NA |      NA |       NA |  NA |              NA |               NA |             NA |    NA |                 NA |         NA |            NA |               NA |                     NA |                           NA |             NA |             NA |                       NA |                 NA |            NA |    NA |      NA |      NA |     NA |            NA |            NA |            NA |
-| ALT      | ALT18840510.00.0 |    1 | NA         |     9 | NA          |       NA |   NA |      NA |      NA |       NA |  NA |              NA |               NA |             NA |    NA |                 NA |         NA |            NA |               NA |                     NA |                           NA |             NA |             NA |                       NA |                 NA |            NA |    NA |      NA |      NA |     NA |            NA |            NA |            NA |
+| team\_id |
+|:---------|
+| ALT      |
+| ALT      |
+| ALT      |
+| ALT      |
+| ALT      |
 
 5 records
 
 </div>
+
+#### Create person\_appearance Table
 
 ``` sql
 --Create person_appearance table
@@ -787,42 +797,30 @@ INSERT OR IGNORE INTO person_appearance (
 
 ``` sql
 --Check if query worked
-SELECT *
+SELECT person_id
 FROM person_appearance
 LIMIT 5;
 ```
 
 <div class="knitsql-table">
 
-| appearance\_id | person\_id | team\_id | game\_id         | appearance\_type\_id |
-|:---------------|:-----------|:---------|:-----------------|:---------------------|
-| NA             | maplb901   | NA       | ALT18840430.00.0 | UHP                  |
-| NA             | curte801   | ALT      | ALT18840430.00.0 | MM                   |
-| NA             | murpj104   | ALT      | ALT18840430.00.0 | PSP                  |
-| NA             | hodnc101   | SLU      | ALT18840430.00.0 | PSP                  |
-| NA             | sullt101   | SLU      | ALT18840430.00.0 | MM                   |
+| person\_id |
+|:-----------|
+| maplb901   |
+| curte801   |
+| murpj104   |
+| hodnc101   |
+| sullt101   |
 
 5 records
 
 </div>
 
-``` sql
---Drop orriginal unnormalized tables
-SELECT *
-FROM person_appearance
-LIMIT 5;
-```
+This should effectively normalize your database and make the relations
+between the newly created tables, easier to navigate through. This
+project has no visualizations as it was to work on just building a
+database.
 
-<div class="knitsql-table">
-
-| appearance\_id | person\_id | team\_id | game\_id         | appearance\_type\_id |
-|:---------------|:-----------|:---------|:-----------------|:---------------------|
-| NA             | maplb901   | NA       | ALT18840430.00.0 | UHP                  |
-| NA             | curte801   | ALT      | ALT18840430.00.0 | MM                   |
-| NA             | murpj104   | ALT      | ALT18840430.00.0 | PSP                  |
-| NA             | hodnc101   | SLU      | ALT18840430.00.0 | PSP                  |
-| NA             | sullt101   | SLU      | ALT18840430.00.0 | MM                   |
-
-5 records
-
-</div>
+Finally we remove the original tables that were uploaded from CSV files
+to remain with only the normalized tables from our schema. This is
+followed with disconnecting the database.
