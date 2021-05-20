@@ -70,15 +70,13 @@ The indicators of interest for this analysis are:
 8. Job position
 
 
-```{r reshape, warning=FALSE, fig.align='center', fig.width=8}
-#Pivot the columns longer and rename them
-df.full<-df.full%>%
-    pivot_wider(names_from = question,
-                values_from = answer)
-
-#Explore the data to identify variables of interest
-#glimpse(df.full)
-plot_histogram(df.full)
+```{sql, connection=conn, include=TRUE}
+--You can preview the available indicators per survey year (e.g. the variables for 2016)
+select Q.questiontext
+from Question as Q
+Left join Answer as A on A.QuestionID = Q.questionid
+Where A.SurveyID=2016
+group by questiontext;
 ```
 
 
@@ -92,8 +90,8 @@ select A.AnswerText as answer, A.SurveyID as year, A.UserID,
 from Answer as A
 LEFT JOIN Question as Q ON Q.questionid=A.QuestionID
 WHERE A.SurveyID=2014
-AND (Q.questionid==1 OR Q.questionid==2 
-OR Q.questionid==3 OR Q.questionid==6 OR Q.questionid==93 );
+AND (Q.questionid==1 OR Q.questionid==2 OR Q.questionid==3 
+OR Q.questionid==6 OR Q.questionid==7 OR Q.questionid==93);
 
 ```
 
@@ -134,6 +132,7 @@ df.2014<-df.2014%>%
            location=`What country do you live in?`,
            gender=`What is your gender?`,
            fam_history_MI=`Do you have a family history of mental illness?`,
+           diagnose=`Have you ever sought treatment for a mental health disorder from a mental health professional?`,
            remote_wrk=`Do you work remotely (outside of an office) at least 50% of the time?`,
            id=UserID)
 
@@ -161,7 +160,7 @@ df.2017<-df.2017%>%
            location=`What country do you live in?`,
            gender=`What is your gender?`,
            fam_history_MI=`Do you have a family history of mental illness?`,
-           identify= `Are you openly identified at work as a person with a mental health issue?`,
+           diagnose= `Are you openly identified at work as a person with a mental health issue?`,
            race=`What is your race?`,
            id=UserID)
 ```
@@ -176,10 +175,6 @@ df.2014<-df.2014 %>%
   filter(gender=="Male"|gender=="Female")
 df.2014$gender<-factor(df.2014$gender)
 
-#Explore data
-plot_intro(df.2014, ggtheme = theme_bw())
-plot_bar(df.2014, maxcat = 5, by="gender", ggtheme = theme_bw())
-
 #str(df.2016)
 #Some of the columns are lists, unlist them
 df.2016$age<-unlist(df.2016$age)
@@ -191,18 +186,51 @@ df.2016$remote_wrk<-unlist(df.2016$remote_wrk)
 
 #Regex to help clean the position column
 df.2016$position<-str_replace_all(df.2016$position,'[^A-Za-z0-9 ]',"")
-df.2016$position<-str_replace_all(df.2016$position,'[ c]',"")
 
 df.2016<-df.2016 %>%
   filter(gender=="Male"|gender=="Female")
 
 df.2016$gender<-factor(df.2016$gender)
 
+##For the 2017 dataset, the race column has numeric
+#For consistency, we can recode it or remove it
+df.2017<-df.2017%>%
+  mutate(race=ifelse(race=="-1", "unidentified",
+                     ifelse(race=="More than one of the above", "Multiracial", race)))
+
+df.2017<-df.2017 %>%
+  filter(gender=="Male"|gender=="Female")
+df.2017$gender<-factor(df.2017$gender)
+
+#Keep only locations with more than 20 observations in each of the survey years
+country<-c("Australia", "Canada", "Germany", "Netherlands", 
+           "United Kingdom", "United States")
+
+df.2014<-df.2014%>%
+  filter(location %in% country)
+
+country<-c("Australia", "Canada", "Germany", "Netherlands", 
+           "United Kingdom", "United States of America")
+
+df.2016<-df.2016%>%
+  filter(location %in% country)
+
+df.2017<-df.2017%>%
+  filter(location %in% country)
+
 #Explore data
-plot_intro(df.2016, ggtheme = theme_bw())
-plot_bar(df.2016, maxcat = 5, by="gender", ggtheme = theme_bw())
+plot_intro(df.2014, ggtheme = theme_bw())
+plot_bar(df.2014, maxcat = 5, by="gender", 
+         ggtheme = theme_bw(),
+         title = "2014 Respondents")
 
+plot_bar(df.2016, maxcat = 5, by="gender", 
+         ggtheme = theme_bw(), ncol = 2,
+         title = "2016 Respondents")
 
+plot_bar(df.2017, maxcat = 8, by="gender", 
+         ggtheme = theme_bw(), nrow = 3,
+         title = "2017 Respondents")
 ```
 
 Once done, do not forget to disconnect the database from your environment.
