@@ -180,6 +180,28 @@ df.2014$gender<-factor(df.2014$gender)
 plot_intro(df.2014, ggtheme = theme_bw())
 plot_bar(df.2014, maxcat = 5, by="gender", ggtheme = theme_bw())
 
+#str(df.2016)
+#Some of the columns are lists, unlist them
+df.2016$age<-unlist(df.2016$age)
+df.2016$gender<-unlist(df.2016$gender)
+df.2016$location<-unlist(df.2016$location)
+df.2016$fam_history_MI<-unlist(df.2016$fam_history_MI)
+df.2016$diagnose<-unlist(df.2016$diagnose)
+df.2016$remote_wrk<-unlist(df.2016$remote_wrk)
+
+#Regex to help clean the position column
+df.2016$position<-str_replace_all(df.2016$position,'[^A-Za-z0-9 ]',"")
+df.2016$position<-str_replace_all(df.2016$position,'[ c]',"")
+
+df.2016<-df.2016 %>%
+  filter(gender=="Male"|gender=="Female")
+
+df.2016$gender<-factor(df.2016$gender)
+
+#Explore data
+plot_intro(df.2016, ggtheme = theme_bw())
+plot_bar(df.2016, maxcat = 5, by="gender", ggtheme = theme_bw())
+
 
 ```
 
