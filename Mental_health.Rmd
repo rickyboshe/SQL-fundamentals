@@ -172,8 +172,10 @@ Next step is to manipulate the data and improve consistency. Some indicators, su
 ```{r manipulate, include=TRUE, warning=FALSE, fig.align='center', fig.width=8, message=FALSE}
 #For consistency purposes, only keep those that identified as Male or Female
 df.2014<-df.2014 %>%
-  filter(gender=="Male"|gender=="Female")
+  filter(gender=="Male"|gender=="Female")%>%
+  mutate(diagnose= ifelse(diagnose==1, "Yes", "No"))
 df.2014$gender<-factor(df.2014$gender)
+df.2014$diagnose<-factor(df.2014$diagnose)
 
 #str(df.2016)
 #Some of the columns are lists, unlist them
@@ -195,12 +197,15 @@ df.2016$gender<-factor(df.2016$gender)
 ##For the 2017 dataset, the race column has numeric
 #For consistency, we can recode it or remove it
 df.2017<-df.2017%>%
-  mutate(race=ifelse(race=="-1", "unidentified",
-                     ifelse(race=="More than one of the above", "Multiracial", race)))
+  mutate(race=ifelse(race=="-1", "Unidentified",
+                     ifelse(race=="More than one of the above", "Multiracial",
+                            ifelse(race=="I prefer not to answer", "Unidentified", race))))
 
 df.2017<-df.2017 %>%
-  filter(gender=="Male"|gender=="Female")
+  filter(gender=="Male"|gender=="Female")%>%
+  mutate(diagnose= ifelse(diagnose==1, "Yes", "No"))
 df.2017$gender<-factor(df.2017$gender)
+df.2017$diagnose<-factor(df.2017$diagnose)
 
 #Keep only locations with more than 20 observations in each of the survey years
 country<-c("Australia", "Canada", "Germany", "Netherlands", 
@@ -221,17 +226,47 @@ df.2017<-df.2017%>%
 #Explore data
 plot_intro(df.2014, ggtheme = theme_bw())
 plot_bar(df.2014, maxcat = 5, by="gender", 
-         ggtheme = theme_bw(),
+         ggtheme = theme_bw(), ncol = 2,
          title = "2014 Respondents")
 
 plot_bar(df.2016, maxcat = 5, by="gender", 
          ggtheme = theme_bw(), ncol = 2,
          title = "2016 Respondents")
 
-plot_bar(df.2017, maxcat = 8, by="gender", 
-         ggtheme = theme_bw(), nrow = 3,
+plot_bar(df.2017, maxcat = 5, by="gender", 
+         ggtheme = theme_bw(), ncol = 2,
          title = "2017 Respondents")
 ```
+**Exploratory Statistics:** The dataset does not contain any missing values, which makes our easier. It would seem for each survey year, 7 out of 10 respondents are male. When it comes to mental health diagnosis, interestingly, a higher share of women have been diagnosed with mental health issues as compared not being diagnosed. This trend is consistent in all 3 survey years.  
+
+
+```{r analysis, include=TRUE}
+#Chi-tests
+##Gender
+chisq.test(table(df.2014$diagnose, df.2014$gender))
+chisq.test(table(df.2016$diagnose, df.2016$gender))
+chisq.test(table(df.2017$diagnose, df.2017$gender))
+
+##Family history
+chisq.test(table(df.2014$diagnose, df.2014$fam_history_MI))
+chisq.test(table(df.2016$diagnose, df.2016$fam_history_MI))
+chisq.test(table(df.2017$diagnose, df.2017$fam_history_MI))
+
+#Boxplot age vs Mental diagnosis
+
+#Unpaired test (wilxcon) to test significance difference in mental health diagnosis by age
+
+
+#
+
+```
+Taking multiple Chi-square tests to check for independence of mental health diagnosis on gender, family history, race and remote work we can observe some relationships.
+
+
+**Gender:** For the 2016 and 2017 surveys, we can reject the *null hypothesis* of independence between gender and mental health diagnosis. We fail to reject the null hypothesis for the survey year 2017.
+
+
+**Family history:**For the 2016 and 2017 surveys, we can reject the *null hypothesis* of independence between family history and mental health diagnosis. We fail to reject the null hypothesis for the survey year 2017.
 
 Once done, do not forget to disconnect the database from your environment.
 ```{r disc, include=TRUE, message=FALSE, warning=FALSE}
