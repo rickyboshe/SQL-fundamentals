@@ -26,6 +26,9 @@ library(plotly)
 library(lubridate)
 library(ggcorrplot)
 library(DataExplorer)
+library(gridExtra)
+library(lattice)
+library(grid)
 ```
 
 
@@ -57,6 +60,7 @@ LEFT JOIN Question as Q ON Q.questionid=A.QuestionID;
 ```
 
 
+
 As you can see, this full dataset would have 107 variables! Clearly we have no intention of analyzing all variable. We shall subset the variables of interest.
 
 The indicators of interest for this analysis are:
@@ -79,9 +83,16 @@ Where A.SurveyID=2016
 group by questiontext;
 ```
 
+```{r, include=TRUE, warning=FALSE, message=FALSE,echo=FALSE, fig.align='center'}
+df.full<-df.full%>%
+  pivot_wider(names_from = question,
+                values_from = answer)
+plot_histogram(df.full$year, ggtheme = theme_bw())
+
+```
 
 We shall pick 3 years that had the most respondents, that is 2014, 2016 and 2017. 
-This will help smooth things along the way with manageable datasets.I will query out the 3 distinct tables, with the identified indicators of interest. The reason for this is that each year, respondents did not answer the same questions all around. 
+This will help smooth things along the way with manageable datasets. I will query out the 3 distinct tables, with the identified indicators of interest. The reason for this is that each year, respondents did not answer the same questions all around. 
 
 ```{sql, connection=conn, include=TRUE, output.var="df.2014"}
 ---Subset a 2014 dataframe with variables of interest
@@ -169,7 +180,7 @@ After reshaping our data we see that the 2016 dataset has the most respondents, 
 
 Next step is to manipulate the data and improve consistency. Some indicators, such has race has text and numerical in the same column. 
 
-```{r manipulate, include=TRUE, warning=FALSE, fig.align='center', fig.width=8, message=FALSE}
+```{r manipulate, include=TRUE, warning=FALSE, fig.align='center', fig.width=9, message=FALSE}
 #For consistency purposes, only keep those that identified as Male or Female
 df.2014<-df.2014 %>%
   filter(gender=="Male"|gender=="Female")%>%
@@ -240,7 +251,7 @@ plot_bar(df.2017, maxcat = 5, by="gender",
 **Exploratory Statistics:** The dataset does not contain any missing values, which makes our easier. It would seem for each survey year, 7 out of 10 respondents are male. When it comes to mental health diagnosis, interestingly, a higher share of women have been diagnosed with mental health issues as compared not being diagnosed. This trend is consistent in all 3 survey years.  
 
 
-```{r analysis, include=TRUE}
+```{r analysis, include=TRUE, warning=FALSE}
 #Chi-tests
 ##Gender
 chisq.test(table(df.2014$diagnose, df.2014$gender))
@@ -251,6 +262,13 @@ chisq.test(table(df.2017$diagnose, df.2017$gender))
 chisq.test(table(df.2014$diagnose, df.2014$fam_history_MI))
 chisq.test(table(df.2016$diagnose, df.2016$fam_history_MI))
 chisq.test(table(df.2017$diagnose, df.2017$fam_history_MI))
+
+##Remote work
+chisq.test(table(df.2014$diagnose, df.2014$remote_wrk))
+chisq.test(table(df.2016$diagnose, df.2016$remote_wrk))
+
+##Race
+chisq.test(table(df.2017$diagnose, df.2017$race))
 
 #Boxplot age vs Mental diagnosis
 
@@ -266,7 +284,57 @@ Taking multiple Chi-square tests to check for independence of mental health diag
 **Gender:** For the 2016 and 2017 surveys, we can reject the *null hypothesis* of independence between gender and mental health diagnosis. We fail to reject the null hypothesis for the survey year 2017.
 
 
-**Family history:**For the 2016 and 2017 surveys, we can reject the *null hypothesis* of independence between family history and mental health diagnosis. We fail to reject the null hypothesis for the survey year 2017.
+**Family history:** For the 2016 and 2017 surveys, we can reject the *null hypothesis* of independence between family history and mental health diagnosis. We fail to reject the null hypothesis for the survey year 2017.
+
+
+**Remote work:** Only 2016 and 2017 surveys have information on working remotely. As the p-values are above the threshold, we fail to reject the *null hypothesis* of independence between working remotely and mental health diagnosis.
+
+
+**Race:** The 2017 dataset has information on race but after running the chi-squared test, we fail to reject the *null hypothesis* of independence between race and mental health diagnosis. 
+
+
+
+```{r freq, include=TRUE, fig.align='center', fig.width=8, warning=FALSE}
+p1<-df.2014%>%
+  ggplot(aes(x=diagnose, fill=gender))+
+  geom_histogram(stat = "count")+
+  theme_bw()+
+  labs(title = "2014",
+       x="",
+       y="Count")+
+  theme(plot.title = element_text(face="bold", size=14, hjust = 0.5),
+        legend.position = "none")
+
+p2<-df.2016%>%
+  ggplot(aes(x=diagnose, fill=gender))+
+  geom_histogram(stat = "count")+
+  theme_bw()+
+  theme(legend.position = "none")+
+  labs(title = "2016",
+       x="",
+       y="")+
+  theme(plot.title = element_text(face="bold", size=14, hjust = 0.5),
+        legend.position = "none")
+
+p3<-df.2017%>%
+  ggplot(aes(x=diagnose, fill=gender))+
+  geom_histogram(stat = "count")+
+  theme_bw()+
+  labs(title = "2017",
+       x="",
+       y="")+
+  theme(plot.title = element_text(face="bold", size=14, hjust = 0.5),
+        axis.title.x = element_text(face="bold", size=14, hjust = 0.5, vjust = -0.8))
+
+grid.arrange(arrangeGrob(p1,p2, ncol = 2),
+             heights=c(3.5/4, 3.5/4), ncol=1,
+             p3,nrow=2, top=textGrob("Diagnosed with a mental health issues",gp=gpar(cex=1.5,col="black")))
+  
+
+```
+
+
+It would appear there is not significant relationship for our variables of interest within the 2017 dataset. This can be explained by the very low frequency of respondents that had a mental health diagnosis, as compared to 2016 and 2014. The distribution of respondents is more balanced in 2014 and 2016.
 
 Once done, do not forget to disconnect the database from your environment.
 ```{r disc, include=TRUE, message=FALSE, warning=FALSE}
