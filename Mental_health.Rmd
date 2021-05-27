@@ -29,6 +29,27 @@ library(DataExplorer)
 library(gridExtra)
 library(lattice)
 library(grid)
+library(lme4)
+library(smotefamily)
+library(InformationValue)
+library(ROCR)
+library(rpart)
+library(randomForest)
+library(xgboost)
+library(MASS)
+library(ggmosaic)
+library(e1071)
+library(ranger)
+library(penalized)
+library(rpart.plot)
+library(ggcorrplot)
+library(caret)
+library(caTools)
+library(doParallel)
+library(readxl)
+library(oddsratio)
+library(partykit)
+registerDoParallel(cores=4)
 ```
 
 
@@ -71,7 +92,6 @@ The indicators of interest for this analysis are:
 5. Family history of mental illness
 6. Respondent diagnosis of mental illness
 7. Race
-8. Job position
 
 
 ```{sql, connection=conn, include=TRUE}
@@ -187,6 +207,7 @@ df.2014<-df.2014 %>%
   mutate(diagnose= ifelse(diagnose==1, "Yes", "No"))
 df.2014$gender<-factor(df.2014$gender)
 df.2014$diagnose<-factor(df.2014$diagnose)
+df.2014$age<-parse_number(df.2014$age)
 
 #str(df.2016)
 #Some of the columns are lists, unlist them
@@ -196,14 +217,14 @@ df.2016$location<-unlist(df.2016$location)
 df.2016$fam_history_MI<-unlist(df.2016$fam_history_MI)
 df.2016$diagnose<-unlist(df.2016$diagnose)
 df.2016$remote_wrk<-unlist(df.2016$remote_wrk)
-
-#Regex to help clean the position column
-df.2016$position<-str_replace_all(df.2016$position,'[^A-Za-z0-9 ]',"")
+df.2016$position<-NULL
 
 df.2016<-df.2016 %>%
   filter(gender=="Male"|gender=="Female")
 
 df.2016$gender<-factor(df.2016$gender)
+df.2016$diagnose<-factor(df.2016$diagnose)
+df.2016$age<-parse_number(df.2016$age)
 
 ##For the 2017 dataset, the race column has numeric
 #For consistency, we can recode it or remove it
@@ -217,6 +238,7 @@ df.2017<-df.2017 %>%
   mutate(diagnose= ifelse(diagnose==1, "Yes", "No"))
 df.2017$gender<-factor(df.2017$gender)
 df.2017$diagnose<-factor(df.2017$diagnose)
+df.2017$age<-parse_number(df.2017$age)
 
 #Keep only locations with more than 20 observations in each of the survey years
 country<-c("Australia", "Canada", "Germany", "Netherlands", 
@@ -224,15 +246,30 @@ country<-c("Australia", "Canada", "Germany", "Netherlands",
 
 df.2014<-df.2014%>%
   filter(location %in% country)
+df.2014$location<-as.factor(df.2014$location)
+df.2014$fam_history_MI<-as.factor(df.2014$fam_history_MI)
+df.2014$remote_wrk<-as.factor(df.2014$remote_wrk)
+df.2014$id<-NULL
 
 country<-c("Australia", "Canada", "Germany", "Netherlands", 
            "United Kingdom", "United States of America")
 
 df.2016<-df.2016%>%
   filter(location %in% country)
+df.2016<-df.2016%>%
+  mutate(location=ifelse(location=="United States of America", 
+                         "United States", location))
+
+df.2016$location<-as.factor(df.2016$location)
+df.2016$fam_history_MI<-as.factor(df.2016$fam_history_MI)
+df.2016$remote_wrk<-as.factor(df.2016$remote_wrk)
+df.2016$id<-NULL
 
 df.2017<-df.2017%>%
   filter(location %in% country)
+df.2017$location<-as.factor(df.2017$location)
+df.2017$fam_history_MI<-as.factor(df.2017$fam_history_MI)
+df.2017$id<-NULL
 
 #Explore data
 plot_intro(df.2014, ggtheme = theme_bw())
@@ -287,11 +324,10 @@ Taking multiple Chi-square tests to check for independence of mental health diag
 **Family history:** For the 2016 and 2017 surveys, we can reject the *null hypothesis* of independence between family history and mental health diagnosis. We fail to reject the null hypothesis for the survey year 2017.
 
 
-**Remote work:** Only 2016 and 2017 surveys have information on working remotely. As the p-values are above the threshold, we fail to reject the *null hypothesis* of independence between working remotely and mental health diagnosis.
+**Remote work:** Only 2016 and 2017 surveys have information on working remotely. As the p-values are above the threshold, we fail to reject the *null hypothesis* of independence between working remotely and mental health diagnosis. It would seem working remotely is not a good predictor for the state of mental health for employees in this dataset. 
 
 
 **Race:** The 2017 dataset has information on race but after running the chi-squared test, we fail to reject the *null hypothesis* of independence between race and mental health diagnosis. 
-
 
 
 ```{r freq, include=TRUE, fig.align='center', fig.width=8, warning=FALSE}
@@ -333,8 +369,160 @@ grid.arrange(arrangeGrob(p1,p2, ncol = 2),
 
 ```
 
-
 It would appear there is not significant relationship for our variables of interest within the 2017 dataset. This can be explained by the very low frequency of respondents that had a mental health diagnosis, as compared to 2016 and 2014. The distribution of respondents is more balanced in 2014 and 2016.
+
+It is clear that due to its poor sampling, the 2017 data set would be of very little value to us. Also the remote work variable has little to not relationship to the mental health of workers. I will remove the 2017 dataset and combine the 2014 and 2016 datasets to increase number of observations.
+
+```{r sampling, include=TRUE, fig.align='center', fig.width=6}
+rm(df.2017)
+df.full<-bind_rows(df.2014, df.2016)
+table(df.full$fam_history_MI)
+
+#Check to see if we factors are still dependent
+chisq.test(table(df.full$diagnose, df.full$gender))
+chisq.test(table(df.full$diagnose, df.full$fam_history_MI))
+chisq.test(table(df.full$diagnose, df.full$remote_wrk))
+
+#remote work is still independent. Remove it and the age outlier
+df.full$remote_wrk<-NULL
+df.full<-df.full%>%
+  filter(age<100 & age>16)
+
+#Test normality of age 
+shapiro.test(df.full$age)
+
+#Wilcox test to see if there is a significant difference in Age between people disgnosed with mental health issues.
+wilcox.test(age ~ diagnose, data = df.full,
+                   exact = FALSE)
+
+df.full%>%ggplot(aes(x=diagnose, y=age, fill=diagnose))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(legend.position = "none")
+
+#We can remove the year column and recode the diagnose column
+df.full$year<-NULL
+df.full<-df.full%>%
+  mutate(diagnose=ifelse(diagnose=="Yes",1,0))
+df.full$diagnose<-as.factor(df.full$diagnose)
+
+rm(df.2014,df.2016)
+
+```
+
+As the **p-value** of the wilcox test is smaller than the significance level alpha = 0.05, we can conclude that there is a significant difference in age between those diagnosed with mental health issues and those not.
+
+```{r modelling, include=TRUE, fig.align='center', fig.width=7}
+#split data
+set.seed(4)
+index<- createDataPartition(df.full$diagnose,p=0.8,list=FALSE)
+training<- df.full[index,]
+testing<- df.full[-index,]
+
+#Check split
+round(prop.table(table(df.full$diagnose)),3)
+round(prop.table(table(training$diagnose)),3)
+round(prop.table(table(testing$diagnose)),3)
+
+## Train the model
+logit.mod <- glm(diagnose~., family = binomial(link = 'logit'), 
+                 data = training)
+
+## Look at the result
+summary(logit.mod)
+
+## Predict the mental health against our test data
+logit.pred.prob <- predict(logit.mod, testing, type = 'response')
+logit.pred <- as.factor(ifelse(logit.pred.prob > 0.5, 1, 0))
+head(testing, 3)
+
+head(logit.pred, 3)
+
+
+#Feature analysis
+anova(logit.mod, test="Chisq")
+
+#Odd ratio
+exp(cbind(coef(logit.mod), confint.default(logit.mod)))
+
+#Evaluate model
+# Evaluation Metrics
+log.result <- confusionMatrix(data = logit.pred, testing$diagnose, 
+                              positive = "1")
+log.precision <- log.result$byClass['Pos Pred Value']
+log.recall    <- log.result$byClass['Sensitivity']
+log.F1        <- log.result$byClass['F1']
+
+#Decision Tree
+# Train model
+tree.model <- rpart(diagnose~.,
+                    data = training,
+                    method = "class",
+                    control = rpart.control(xval = 10))
+# Plot
+rpart.plot(tree.model)
+
+# Evaluation metrics (Tree)
+tree.pred      <- predict(tree.model, newdata = testing, type = "class")
+tree.result    <- confusionMatrix(data = tree.pred, testing$diagnose)
+tree.precision <- tree.result$byClass['Pos Pred Value']
+tree.recall    <- tree.result$byClass['Sensitivity']
+tree.F1        <- tree.result$byClass['F1']
+
+
+#Random Forest
+#Train model
+forest.model <- randomForest(diagnose~.,
+                       data = training,
+                       ntree=200,
+                       type="classification")
+
+# See error reduction with number of trees (not much gained beyond ~150 trees)
+plot(forest.model)
+
+# Look at the variable Importance from the random forest
+varImpPlot(forest.model, sort = T, main="Variable Importance")
+
+# Evaluation metrics
+forest.pred      <- predict(forest.model, newdata = testing, type = "class")
+forest.result    <- confusionMatrix(data = forest.pred, testing$diagnose)
+forest.precision <- forest.result$byClass['Pos Pred Value']
+forest.recall    <- forest.result$byClass['Sensitivity']
+forest.F1        <- forest.result$byClass['F1']
+
+
+#Evaluate the 3 models
+#Precision
+log.precision
+tree.precision
+forest.precision
+
+#Recall
+log.recall
+tree.recall
+forest.recall
+
+#F1 Score
+log.F1
+tree.F1
+forest.F1
+
+```
+From the logistic regression we can see the following predictors with the lowest *p-values*:
+
+
+**Age:** As age increases, respondents were slightly more likely to have been diagnosed with mental health issues. 
+
+
+**Gender:** Men were less likely to have been diagnosed with mental health issues as compared to women respondents. 
+
+
+**Family history:** People with a family history of mental health issues are more likely to also be diagnosed with mental health issues.
+
+A feature analysis shows that gender and family history are the strongest predictors of mental health in the survey response. In fact, an odds ratio analysis shows that if a respondent has a family history of mental health issues, they are <span style="color: red;">**5 times**</span> more likely to also be diagnosed with mental health issues. Meanwhile, if a respondent is male, they are <span style="color: red;">**half**</span> as likely as women to have diagnosed with mental health issues. 
+
+
+Evaluating the best model, the logistic model has the highest **Precision** and the second highest **recall** (sensitivity). therefore we can use the logistic regression to predict mental health status of a respondent, granted we have their family mental health history, gender and age. 
 
 Once done, do not forget to disconnect the database from your environment.
 ```{r disc, include=TRUE, message=FALSE, warning=FALSE}
