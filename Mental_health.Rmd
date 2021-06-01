@@ -11,7 +11,10 @@ output: html_document
 #  Mental Health at the Workplace `r emo::ji("brain")`
 </center>
 
-Over the past year we have heard about just how much the pandemic has exacerbated the mental health crisis around the world. According to [research](https://www.kff.org/coronavirus-covid-19/issue-brief/the-implications-of-covid-19-for-mental-health-and-substance-use/), an esitimated 4 in 10 adults in the USA reportedsymptoms of anxiety or depressive disorder during the pandemic. This figure is up from 1 in 10 adults in 2019. The social isolation, community lockdown and grim newsfeeds filled with pandemic casualties all paid a heavy toll on our mental health.This has led to health authorities such as the CDC issuing guidlines on how to [cope with stress](https://www.cdc.gov/coronavirus/2019-ncov/daily-life-coping/managing-stress-anxiety.html).
+Over the past year we have heard about just how much the pandemic has exacerbated the mental health crisis around the world. According to [research](https://www.kff.org/coronavirus-covid-19/issue-brief/the-implications-of-covid-19-for-mental-health-and-substance-use/), an estimated 4 in 10 adults in the USA reported symptoms of anxiety or depressive disorder during the pandemic. This figure is up from 1 in 10 adults in 2019. 
+
+
+The social isolation, community lockdown and grim newsfeeds filled with pandemic casualties all paid a heavy toll on our mental health.This has led to health authorities such as the CDC issuing guidelines on how to [cope with stress](https://www.cdc.gov/coronavirus/2019-ncov/daily-life-coping/managing-stress-anxiety.html).
 
 
 With this in mind, i decided to analyze what were the mental health trends **before** the pandemic, looking into in the tech industry which has been know to have serious mental health issues for its employees. Using data from [Open Source Mental Illness (OSMI)](https://www.kaggle.com/anth7310/mental-health-in-the-tech-industry) using survey data from years 2014, 2016, 2017, 2018 and 2019. The data is on a database as it contains multiple tables. I will use SQLite queries to extract the variables of interest and continue with R script to analyze and visualize the relationships and patterns between the indicators. 
@@ -49,6 +52,9 @@ library(doParallel)
 library(readxl)
 library(oddsratio)
 library(partykit)
+library(jtools)
+library(kableExtra)
+library(knitr)
 registerDoParallel(cores=4)
 ```
 
@@ -152,6 +158,9 @@ OR Q.questionid==6 OR Q.questionid==78 OR Q.questionid==89);
 
 A quick glance shows how each year there some questions that are not found in another year. Plus the number of respondents is not consistent across the years. It is better to subset each year as a unique dataset.
 
+
+### Data Cleaning
+
 ```{r clean, include=TRUE, warning=FALSE}
 #Pivot the columns longer and rename them
 df.2014<-df.2014%>%
@@ -200,78 +209,81 @@ After reshaping our data we see that the 2016 dataset has the most respondents, 
 
 Next step is to manipulate the data and improve consistency. Some indicators, such has race has text and numerical in the same column. 
 
+
+### Data Manipulation and Exploration
 ```{r manipulate, include=TRUE, warning=FALSE, fig.align='center', fig.width=9, message=FALSE}
-#For consistency purposes, only keep those that identified as Male or Female
-df.2014<-df.2014 %>%
+# 2014 dataset
+# For consistency purposes, only keep those that identified as Male or Female
+# Keep only locations with more than 20 observations in each of the survey years
+country<-c("Australia", "Canada", "Germany", "Netherlands", 
+           "United Kingdom", "United States")
+
+#Transform categorical variables
+df.2014<-df.2014%>%
+  filter(location %in% country)%>%
+  mutate(gender=as.factor(gender),
+         diagnose=as.factor(diagnose),
+         fam_history_MI=as.factor(fam_history_MI),
+         remote_wrk=as.factor(remote_wrk),
+         location=as.factor(location))%>%
   filter(gender=="Male"|gender=="Female")%>%
   mutate(diagnose= ifelse(diagnose==1, "Yes", "No"))
-df.2014$gender<-factor(df.2014$gender)
-df.2014$diagnose<-factor(df.2014$diagnose)
+
+df.2014$id<-NULL
 df.2014$age<-parse_number(df.2014$age)
 
-#str(df.2016)
-#Some of the columns are lists, unlist them
+# 2016 dataset
+# Some of the columns are lists, unlist them
 df.2016$age<-unlist(df.2016$age)
 df.2016$gender<-unlist(df.2016$gender)
 df.2016$location<-unlist(df.2016$location)
 df.2016$fam_history_MI<-unlist(df.2016$fam_history_MI)
 df.2016$diagnose<-unlist(df.2016$diagnose)
 df.2016$remote_wrk<-unlist(df.2016$remote_wrk)
-df.2016$position<-NULL
 
-df.2016<-df.2016 %>%
-  filter(gender=="Male"|gender=="Female")
-
-df.2016$gender<-factor(df.2016$gender)
-df.2016$diagnose<-factor(df.2016$diagnose)
-df.2016$age<-parse_number(df.2016$age)
-
-##For the 2017 dataset, the race column has numeric
-#For consistency, we can recode it or remove it
-df.2017<-df.2017%>%
-  mutate(race=ifelse(race=="-1", "Unidentified",
-                     ifelse(race=="More than one of the above", "Multiracial",
-                            ifelse(race=="I prefer not to answer", "Unidentified", race))))
-
-df.2017<-df.2017 %>%
-  filter(gender=="Male"|gender=="Female")%>%
-  mutate(diagnose= ifelse(diagnose==1, "Yes", "No"))
-df.2017$gender<-factor(df.2017$gender)
-df.2017$diagnose<-factor(df.2017$diagnose)
-df.2017$age<-parse_number(df.2017$age)
-
-#Keep only locations with more than 20 observations in each of the survey years
-country<-c("Australia", "Canada", "Germany", "Netherlands", 
-           "United Kingdom", "United States")
-
-df.2014<-df.2014%>%
-  filter(location %in% country)
-df.2014$location<-as.factor(df.2014$location)
-df.2014$fam_history_MI<-as.factor(df.2014$fam_history_MI)
-df.2014$remote_wrk<-as.factor(df.2014$remote_wrk)
-df.2014$id<-NULL
-
+#Create country variable to match list of countries 
 country<-c("Australia", "Canada", "Germany", "Netherlands", 
            "United Kingdom", "United States of America")
 
-df.2016<-df.2016%>%
-  filter(location %in% country)
-df.2016<-df.2016%>%
+df.2016<-df.2016 %>%
+  filter(gender=="Male"|gender=="Female")%>%
+  filter(location %in% country)%>%
   mutate(location=ifelse(location=="United States of America", 
-                         "United States", location))
-
-df.2016$location<-as.factor(df.2016$location)
-df.2016$fam_history_MI<-as.factor(df.2016$fam_history_MI)
-df.2016$remote_wrk<-as.factor(df.2016$remote_wrk)
+                         "United States", location))%>%
+  mutate(gender=as.factor(gender),
+         diagnose=as.factor(diagnose),
+         fam_history_MI=as.factor(fam_history_MI),
+         remote_wrk=as.factor(remote_wrk),
+         location=as.factor(location))
+df.2016$position<-NULL
 df.2016$id<-NULL
+df.2016$age<-parse_number(df.2016$age)
 
-df.2017<-df.2017%>%
-  filter(location %in% country)
-df.2017$location<-as.factor(df.2017$location)
-df.2017$fam_history_MI<-as.factor(df.2017$fam_history_MI)
+#There are some impossible values in the age column. Remove them
+df.2016<-df.2016%>%
+  filter(age<100 & age>16)
+
+
+# 2017 dataset
+# This dataset has a Race column but it needs recoding
+df.2017<-df.2017 %>%
+  filter(gender=="Male"|gender=="Female")%>%
+  filter(location %in% country)%>%
+  mutate(race=ifelse(race=="-1", "Unidentified",
+                     ifelse(race=="More than one of the above", "Multiracial",
+                            ifelse(race=="I prefer not to answer", "Unidentified", race))))%>%
+  mutate(diagnose= ifelse(diagnose==1, "Yes", "No"))%>%
+  mutate(gender=as.factor(gender),
+         diagnose=as.factor(diagnose),
+         fam_history_MI=as.factor(fam_history_MI),
+         location=as.factor(location),
+         race=as.factor(race))
+
 df.2017$id<-NULL
+df.2017$age<-parse_number(df.2017$age)
 
-#Explore data
+
+#Explore data after cleaning
 plot_intro(df.2014, ggtheme = theme_bw())
 plot_bar(df.2014, maxcat = 5, by="gender", 
          ggtheme = theme_bw(), ncol = 2,
@@ -288,31 +300,62 @@ plot_bar(df.2017, maxcat = 5, by="gender",
 **Exploratory Statistics:** The dataset does not contain any missing values, which makes our easier. It would seem for each survey year, 7 out of 10 respondents are male. When it comes to mental health diagnosis, interestingly, a higher share of women have been diagnosed with mental health issues as compared not being diagnosed. This trend is consistent in all 3 survey years.  
 
 
+### Factor Selection
 ```{r analysis, include=TRUE, warning=FALSE}
-#Chi-tests
-##Gender
-chisq.test(table(df.2014$diagnose, df.2014$gender))
-chisq.test(table(df.2016$diagnose, df.2016$gender))
-chisq.test(table(df.2017$diagnose, df.2017$gender))
+#2014
+chi.square <- vector()
+p.value <- vector()
+cateVar <- df.2014 %>% 
+  dplyr::select(-diagnose) %>% 
+  keep(is.factor)
 
-##Family history
-chisq.test(table(df.2014$diagnose, df.2014$fam_history_MI))
-chisq.test(table(df.2016$diagnose, df.2016$fam_history_MI))
-chisq.test(table(df.2017$diagnose, df.2017$fam_history_MI))
+for (i in 1:length(cateVar)) {
+ p.value[i] <- round(chisq.test(df.2014$diagnose, unname(unlist(cateVar[i])), correct = FALSE)[3]$p.value, 3)
+ chi.square[i] <- unname(chisq.test(df.2014$diagnose, unname(unlist(cateVar[i])), correct = FALSE)[1]$statistic)
+}
 
-##Remote work
-chisq.test(table(df.2014$diagnose, df.2014$remote_wrk))
-chisq.test(table(df.2016$diagnose, df.2016$remote_wrk))
-
-##Race
-chisq.test(table(df.2017$diagnose, df.2017$race))
-
-#Boxplot age vs Mental diagnosis
-
-#Unpaired test (wilxcon) to test significance difference in mental health diagnosis by age
+chi_sqaure_test <- tibble(variable = names(cateVar)) %>% 
+  add_column(chi.square = chi.square) %>% 
+  add_column(p.value = p.value)
+knitr::kable(chi_sqaure_test, caption = "Chi-square Test (2014)")%>% 
+  kable_styling()
 
 
-#
+#2016
+chi.square <- vector()
+p.value <- vector()
+cateVar <- df.2016 %>% 
+  dplyr::select(-diagnose) %>% 
+  keep(is.factor)
+
+for (i in 1:length(cateVar)) {
+ p.value[i] <- round(chisq.test(df.2016$diagnose, unname(unlist(cateVar[i])), correct = FALSE)[3]$p.value, 3)
+ chi.square[i] <- unname(chisq.test(df.2016$diagnose, unname(unlist(cateVar[i])), correct = FALSE)[1]$statistic)
+}
+
+chi_sqaure_test <- tibble(variable = names(cateVar)) %>% 
+  add_column(chi.square = chi.square) %>% 
+  add_column(p.value = p.value)
+knitr::kable(chi_sqaure_test, caption = "Chi-square Test (2016)")%>% 
+  kable_styling()
+
+#2017
+chi.square <- vector()
+p.value <- vector()
+cateVar <- df.2017 %>% 
+  dplyr::select(-diagnose) %>% 
+  keep(is.factor)
+
+for (i in 1:length(cateVar)) {
+ p.value[i] <- round(chisq.test(df.2017$diagnose, unname(unlist(cateVar[i])), correct = FALSE)[3]$p.value, 3)
+ chi.square[i] <- unname(chisq.test(df.2017$diagnose, unname(unlist(cateVar[i])), correct = FALSE)[1]$statistic)
+}
+
+chi_sqaure_test <- tibble(variable = names(cateVar)) %>% 
+  add_column(chi.square = chi.square) %>% 
+  add_column(p.value = p.value)
+knitr::kable(chi_sqaure_test, caption = "Chi-square Test (2017)")%>% 
+  kable_styling()
 
 ```
 Taking multiple Chi-square tests to check for independence of mental health diagnosis on gender, family history, race and remote work we can observe some relationships.
@@ -328,6 +371,9 @@ Taking multiple Chi-square tests to check for independence of mental health diag
 
 
 **Race:** The 2017 dataset has information on race but after running the chi-squared test, we fail to reject the *null hypothesis* of independence between race and mental health diagnosis. 
+
+
+**Location:** This variable is significant and not independent in the 2014 dataset. Its p-values in 2016 and 2017 are too high meaning we fail to reject the *null hypothesis* of independence between location and mental health diagnosis. 
 
 
 ```{r freq, include=TRUE, fig.align='center', fig.width=8, warning=FALSE}
@@ -371,65 +417,81 @@ grid.arrange(arrangeGrob(p1,p2, ncol = 2),
 
 It would appear there is not significant relationship for our variables of interest within the 2017 dataset. This can be explained by the very low frequency of respondents that had a mental health diagnosis, as compared to 2016 and 2014. The distribution of respondents is more balanced in 2014 and 2016.
 
-It is clear that due to its poor sampling, the 2017 data set would be of very little value to us. Also the remote work variable has little to not relationship to the mental health of workers. I will remove the 2017 dataset and combine the 2014 and 2016 datasets to increase number of observations.
+### Balance of Data
+```{r balance, include=TRUE}
+round(prop.table(table(df.2014$diagnose)),3)
+round(prop.table(table(df.2016$diagnose)),3)
+round(prop.table(table(df.2017$diagnose)),3)
+rm(df.2014, df.2017)
 
-```{r sampling, include=TRUE, fig.align='center', fig.width=6}
-rm(df.2017)
-df.full<-bind_rows(df.2014, df.2016)
-table(df.full$fam_history_MI)
+df.2016$remote_wrk<-NULL
 
-#Check to see if we factors are still dependent
-chisq.test(table(df.full$diagnose, df.full$gender))
-chisq.test(table(df.full$diagnose, df.full$fam_history_MI))
-chisq.test(table(df.full$diagnose, df.full$remote_wrk))
+```
 
-#remote work is still independent. Remove it and the age outlier
-df.full$remote_wrk<-NULL
-df.full<-df.full%>%
-  filter(age<100 & age>16)
 
+The 2014 and 2016 datasets have a good balance of data with the share of respondents with a diagnose of mental health issues at 48% for both. But the 2017 dataset is very unbalanced with just 12% with a diagnose of mental health. 
+
+
+It is clear that due to its poor sampling, the 2017 data set would be of very little value to us. Also the remote work variable has little to not relationship to the mental health of workers. Therefore the 2017 dataset was removed. 
+
+
+As *location* was only significant in the 2016 dataset, it would be ill advised to combine the 2016 and 2014 datasets. The are to be analyzed separately. I decided to remain with the 2016 dataset as it has more observations. 
+
+
+## Model
+I primarily used binary classifiers to try and model the predictors against the state of a respondent having mental health issues or not. A comparison of **Logistic Regression**, **Decision Tree** and **Random Forest** was done at the end to select the best model.
+
+### Normality of Data
+```{r normality, include=TRUE, fig.align='center', fig.width=6}
 #Test normality of age 
-shapiro.test(df.full$age)
+shapiro.test(df.2016$age)
 
-#Wilcox test to see if there is a significant difference in Age between people disgnosed with mental health issues.
-wilcox.test(age ~ diagnose, data = df.full,
+#Wilcox test to see if there is a significant difference in Age between people diagnosed with mental health issues.
+wilcox.test(age ~ diagnose, data = df.2016,
                    exact = FALSE)
 
-df.full%>%ggplot(aes(x=diagnose, y=age, fill=diagnose))+
+df.2016%>%ggplot(aes(x=diagnose, y=age, fill=diagnose))+
   geom_boxplot()+
   theme_bw()+
   theme(legend.position = "none")
 
 #We can remove the year column and recode the diagnose column
-df.full$year<-NULL
-df.full<-df.full%>%
+df.2016$year<-NULL
+df.2016<-df.2016%>%
   mutate(diagnose=ifelse(diagnose=="Yes",1,0))
-df.full$diagnose<-as.factor(df.full$diagnose)
-
-rm(df.2014,df.2016)
+df.2016$diagnose<-as.factor(df.2016$diagnose)
 
 ```
 
-As the **p-value** of the wilcox test is smaller than the significance level alpha = 0.05, we can conclude that there is a significant difference in age between those diagnosed with mental health issues and those not.
+The data deviates significantly from a normal distribution as the **p-value** from Shapiro's test is below the significance level alpha = 0.05.
 
-```{r modelling, include=TRUE, fig.align='center', fig.width=7}
+As the **p-value** of the wilcox test is larger than the significance level alpha = 0.05, we can conclude that there is no significant difference in age between those diagnosed with mental health issues and those not.
+
+
+### Split Data
+```{r partition, include=TRUE, fig.align='center', fig.width=7}
 #split data
 set.seed(4)
-index<- createDataPartition(df.full$diagnose,p=0.8,list=FALSE)
-training<- df.full[index,]
-testing<- df.full[-index,]
+index<- createDataPartition(df.2016$diagnose,p=0.8,list=FALSE)
+training<- df.2016[index,]
+testing<- df.2016[-index,]
 
 #Check split
-round(prop.table(table(df.full$diagnose)),3)
+round(prop.table(table(df.2016$diagnose)),3)
 round(prop.table(table(training$diagnose)),3)
 round(prop.table(table(testing$diagnose)),3)
+```
+
+
+### Logistic Regression
+```{r logistic, include=TRUE, fig.align='center', fig.width=7}
 
 ## Train the model
 logit.mod <- glm(diagnose~., family = binomial(link = 'logit'), 
                  data = training)
 
 ## Look at the result
-summary(logit.mod)
+summ(logit.mod)
 
 ## Predict the mental health against our test data
 logit.pred.prob <- predict(logit.mod, testing, type = 'response')
@@ -438,14 +500,16 @@ head(testing, 3)
 
 head(logit.pred, 3)
 
-
 #Feature analysis
-anova(logit.mod, test="Chisq")
+knitr::kable(round(anova(logit.mod, test="Chisq"),3), 
+             caption = "Likelihood Ratio test")%>% 
+  kable_styling()
 
 #Odd ratio
-exp(cbind(coef(logit.mod), confint.default(logit.mod)))
+knitr::kable(round(exp(cbind(coef(logit.mod), confint.default(logit.mod))),3),
+             caption = "Odds Ratio")%>% 
+  kable_styling()
 
-#Evaluate model
 # Evaluation Metrics
 log.result <- confusionMatrix(data = logit.pred, testing$diagnose, 
                               positive = "1")
@@ -453,6 +517,14 @@ log.precision <- log.result$byClass['Pos Pred Value']
 log.recall    <- log.result$byClass['Sensitivity']
 log.F1        <- log.result$byClass['F1']
 
+log.result
+
+```
+
+
+
+## Decision Tree
+```{r tree, include=TRUE, fig.align='center', fig.width=7}
 #Decision Tree
 # Train model
 tree.model <- rpart(diagnose~.,
@@ -469,7 +541,14 @@ tree.precision <- tree.result$byClass['Pos Pred Value']
 tree.recall    <- tree.result$byClass['Sensitivity']
 tree.F1        <- tree.result$byClass['F1']
 
+tree.result
 
+```
+
+
+
+## Random Forest
+```{r forest, include=TRUE, fig.align='center', fig.width=7}
 #Random Forest
 #Train model
 forest.model <- randomForest(diagnose~.,
@@ -490,6 +569,12 @@ forest.precision <- forest.result$byClass['Pos Pred Value']
 forest.recall    <- forest.result$byClass['Sensitivity']
 forest.F1        <- forest.result$byClass['F1']
 
+forest.result
+```
+
+
+### Compare Models
+```{r evaluate, include=TRUE}
 
 #Evaluate the 3 models
 #Precision
@@ -508,6 +593,7 @@ tree.F1
 forest.F1
 
 ```
+
 From the logistic regression we can see the following predictors with the lowest *p-values*:
 
 
