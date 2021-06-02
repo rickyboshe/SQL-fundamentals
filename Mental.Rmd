@@ -1,8 +1,11 @@
 ---
 title: "Mental Health"
 author: "Fredrick Boshe"
-date: "18/05/2021"
-output: html_document
+date: 02/06/2021"
+output: 
+  github_document: default
+  rmarkdown::github_document: default
+always_allow_html: true
 ---
 
 <br></br>
@@ -76,6 +79,8 @@ FROM sqlite_master
 WHERE type IN ("table","view");
 
 ```
+
+
 Join the tables with an SQL query and save the full dataset. The tables have (for some reason) been elongated. thankfully, we can pivot wider the tables with a single R command. This will allow us to glimpse all the indicators and select the ones most important for our analysis. 
 
 ```{sql, connection=conn, include=TRUE, output.var="df.full"}
@@ -90,14 +95,15 @@ LEFT JOIN Question as Q ON Q.questionid=A.QuestionID;
 
 As you can see, this full dataset would have 107 variables! Clearly we have no intention of analyzing all variable. We shall subset the variables of interest.
 
+
 The indicators of interest for this analysis are:
-1. Age
-2. Gender
-3. Location
-4. Remote work
-5. Family history of mental illness
-6. Respondent diagnosis of mental illness
-7. Race
+1.  Age
+2.  Gender
+3.  Location
+4.  Remote work
+5.  Family history of mental illness
+6.  Respondent diagnosis of mental illness
+7.  Race
 
 
 ```{sql, connection=conn, include=TRUE}
@@ -523,6 +529,20 @@ log.result
 
 
 
+From the logistic regression we can see the following predictors with the lowest *p-values*:
+
+
+**Age:** As age increases, respondents were slightly more likely to have been diagnosed with mental health issues. 
+
+
+**Gender:** Men were less likely to have been diagnosed with mental health issues as compared to women respondents. 
+
+
+**Family history:** People with a family history of mental health issues are more likely to also be diagnosed with mental health issues.
+
+A feature analysis shows that gender and family history are the strongest predictors of mental health in the survey response. In fact, an odds ratio analysis shows that if a respondent has a family history of mental health issues, they are <span style="color: red;">**5 times**</span> more likely to also be diagnosed with mental health issues. Meanwhile, if a respondent is male, they are <span style="color: red;">**half**</span> as likely as women to have diagnosed with mental health issues. 
+
+
 ## Decision Tree
 ```{r tree, include=TRUE, fig.align='center', fig.width=7}
 #Decision Tree
@@ -594,21 +614,9 @@ forest.F1
 
 ```
 
-From the logistic regression we can see the following predictors with the lowest *p-values*:
 
-
-**Age:** As age increases, respondents were slightly more likely to have been diagnosed with mental health issues. 
-
-
-**Gender:** Men were less likely to have been diagnosed with mental health issues as compared to women respondents. 
-
-
-**Family history:** People with a family history of mental health issues are more likely to also be diagnosed with mental health issues.
-
-A feature analysis shows that gender and family history are the strongest predictors of mental health in the survey response. In fact, an odds ratio analysis shows that if a respondent has a family history of mental health issues, they are <span style="color: red;">**5 times**</span> more likely to also be diagnosed with mental health issues. Meanwhile, if a respondent is male, they are <span style="color: red;">**half**</span> as likely as women to have diagnosed with mental health issues. 
-
-
-Evaluating the best model, the logistic model has the highest **Precision** and the second highest **recall** (sensitivity). therefore we can use the logistic regression to predict mental health status of a respondent, granted we have their family mental health history, gender and age. 
+## Conclusion
+Evaluating the best model, the logistic model has the highest **Precision** and the second highest **recall** (sensitivity). Therefore we can use the logistic regression to predict mental health status of a respondent, granted we have their family mental health history, gender and age. 
 
 Once done, do not forget to disconnect the database from your environment.
 ```{r disc, include=TRUE, message=FALSE, warning=FALSE}
